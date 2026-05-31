@@ -18,9 +18,17 @@ def send_invite(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_manager)
 ):
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == current_user.id).first()
+    project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if current_user.role != "admin":
+        is_owner = project.owner_id == current_user.id
+        is_member = db.query(ProjectMember).filter(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == current_user.id
+        ).first()
+        if not is_owner and not is_member:
+            raise HTTPException(status_code=403, detail="Not your project")
 
     invitee = db.query(User).filter(User.username == data.username).first()
     if not invitee:

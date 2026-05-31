@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import asc, desc
+from sqlalchemy import asc, desc, case
 from typing import List, Optional
 from datetime import datetime
 from app.dependencies import get_db, get_current_user, require_manager
 from app.models.task import Task
 from app.models.project import Project
+from app.models.project_member import ProjectMember
 from app.models.user import User
 from app.schemas.task import TaskCreate, TaskUpdate, TaskOut
 
@@ -45,13 +46,19 @@ def get_tasks(
     if search:
         query = query.filter(Task.title.ilike(f"%{search}%"))
 
-    sort_col = {
-        "deadline": Task.deadline,
-        "priority": Task.priority,
-        "created_at": Task.created_at,
-    }.get(sort_by, Task.created_at)
+    priority_order = case(
+        (Task.priority == "high", 1),
+        (Task.priority == "medium", 2),
+        (Task.priority == "low", 3),
+        else_=4
+    )
 
-    query = query.order_by(desc(sort_col) if sort_dir == "desc" else asc(sort_col))
+    if sort_by == "priority":
+        sort_col = priority_order
+        query = query.order_by(asc(sort_col) if sort_dir == "desc" else desc(sort_col))
+    else:
+        sort_col = {"deadline": Task.deadline, "created_at": Task.created_at}.get(sort_by, Task.created_at)
+        query = query.order_by(desc(sort_col) if sort_dir == "desc" else asc(sort_col))
 
     return query.all()
 
@@ -62,12 +69,18 @@ def create_task(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_manager)
 ):
-    project = db.query(Project).filter(
-        Project.id == data.project_id,
-        Project.owner_id == current_user.id
-    ).first()
-    if not project and current_user.role != "admin":
+    project = db.query(Project).filter(Project.id == data.project_id).first()
+    if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if current_user.role != "admin":
+        is_owner = project.owner_id == current_user.id
+        is_member = db.query(ProjectMember).filter(
+            ProjectMember.project_id == project.id,
+            ProjectMember.user_id == current_user.id
+        ).first()
+        if not is_owner and not is_member:
+            raise HTTPException(status_code=403, detail="No access to this project")
 
     task = Task(**data.model_dump())
     db.add(task)

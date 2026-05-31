@@ -29,9 +29,11 @@ def add_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_manager)
 ):
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == current_user.id).first()
+    project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if current_user.role != "admin" and project.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your project")
 
     user = db.query(User).filter(User.id == data.user_id).first()
     if not user:
@@ -58,9 +60,11 @@ def remove_member(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_manager)
 ):
-    project = db.query(Project).filter(Project.id == project_id, Project.owner_id == current_user.id).first()
+    project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+    if current_user.role != "admin" and project.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your project")
 
     member = db.query(ProjectMember).filter(
         ProjectMember.project_id == project_id,
