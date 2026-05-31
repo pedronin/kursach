@@ -24,11 +24,16 @@
           <option value="">Все исполнители</option>
           <option v-for="u in users" :key="u.id" :value="u.id">{{ u.username }}</option>
         </select>
-        <select v-model="sortBy" @change="applyFilters" class="filter-select">
-          <option value="created_at">По дате</option>
-          <option value="deadline">По дедлайну</option>
-          <option value="priority">По приоритету</option>
-        </select>
+        <div class="sort-group">
+          <select v-model="sortBy" @change="applyFilters" class="filter-select sort-select">
+            <option value="created_at">По дате создания</option>
+            <option value="deadline">По дедлайну</option>
+            <option value="priority">По приоритету</option>
+          </select>
+          <button class="sort-dir-btn" @click="toggleSortDir" :title="sortDir === 'desc' ? 'По убыванию' : 'По возрастанию'">
+            {{ sortDir === 'desc' ? '↓' : '↑' }}
+          </button>
+        </div>
         <span class="user-badge">{{ auth.user?.username }}</span>
         <button v-if="auth.isManager" class="btn-ghost" @click="showMembers = true">Участники</button>
         <button v-if="auth.isManager" class="btn-primary" @click="showCreateTask = true">+ Задача</button>
@@ -319,6 +324,7 @@ const filterStatus = ref('')
 const filterPriority = ref('')
 const filterAssignee = ref(auth.user?.role === 'employee' ? auth.user.id : '')
 const sortBy = ref('created_at')
+const sortDir = ref('desc')
 const draggedTask = ref(null)
 const dragOverCol = ref(null)
 
@@ -345,12 +351,17 @@ onMounted(async () => {
 })
 
 async function applyFilters() {
-  const params = { project_id: route.params.id, sort_by: sortBy.value }
+  const params = { project_id: route.params.id, sort_by: sortBy.value, sort_dir: sortDir.value }
   if (filterSearch.value) params.search = filterSearch.value
   if (filterStatus.value) params.status = filterStatus.value
   if (filterPriority.value) params.priority = filterPriority.value
   if (filterAssignee.value) params.assignee_id = filterAssignee.value
   await store.fetchTasks(params)
+}
+
+function toggleSortDir() {
+  sortDir.value = sortDir.value === 'desc' ? 'asc' : 'desc'
+  applyFilters()
 }
 
 async function loadProjectComments() {
