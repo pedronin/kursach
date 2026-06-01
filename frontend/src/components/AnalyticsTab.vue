@@ -3,29 +3,32 @@
     <div v-if="loading" class="empty" style="padding: 60px">Загрузка...</div>
     <div v-else-if="error" class="error" style="padding: 24px">{{ error }}</div>
     <template v-else>
-      <div class="stats-row">
-        <div class="stat-card">
-          <span class="stat-num">{{ summary.total ?? 0 }}</span>
-          <span class="stat-label">Всего задач</span>
+
+      <!-- Коэффициенты -->
+      <div class="coeff-row">
+        <div class="coeff-card">
+          <div class="coeff-label">Индекс риска проекта</div>
+          <div class="coeff-value" :style="{ color: riskColor }">{{ summary.risk_index ?? 0 }}<span class="coeff-unit">%</span></div>
+          <div class="coeff-desc">{{ riskLabel }}</div>
         </div>
-        <div class="stat-card">
-          <span class="stat-num stat-muted">{{ summary.by_status?.todo ?? 0 }}</span>
-          <span class="stat-label">To Do</span>
+        <div class="coeff-card">
+          <div class="coeff-label">Выполнено задач</div>
+          <div class="coeff-value" style="color: var(--green)">{{ summary.completion_rate ?? 0 }}<span class="coeff-unit">%</span></div>
+          <div class="coeff-desc">{{ summary.by_status?.done ?? 0 }} из {{ summary.total ?? 0 }}</div>
         </div>
-        <div class="stat-card">
-          <span class="stat-num stat-blue">{{ summary.by_status?.in_progress ?? 0 }}</span>
-          <span class="stat-label">В работе</span>
+        <div class="coeff-card">
+          <div class="coeff-label">Просрочено</div>
+          <div class="coeff-value" :style="{ color: summary.overdue > 0 ? 'var(--red)' : 'var(--green)' }">{{ summary.overdue ?? 0 }}</div>
+          <div class="coeff-desc">незакрытых задач с истёкшим дедлайном</div>
         </div>
-        <div class="stat-card">
-          <span class="stat-num stat-green">{{ summary.by_status?.done ?? 0 }}</span>
-          <span class="stat-label">Выполнено</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-num stat-red">{{ summary.overdue ?? 0 }}</span>
-          <span class="stat-label">Просрочено</span>
+        <div class="coeff-card">
+          <div class="coeff-label">В работе</div>
+          <div class="coeff-value" style="color: var(--blue)">{{ summary.by_status?.in_progress ?? 0 }}</div>
+          <div class="coeff-desc">из {{ summary.total ?? 0 }} всего задач</div>
         </div>
       </div>
 
+      <!-- Графики -->
       <div class="analytics-charts">
         <div class="chart-card">
           <div class="chart-title">Динамика создания задач (30 дней)</div>
@@ -40,6 +43,44 @@
         </div>
       </div>
 
+      <!-- Индекс нагрузки по сотрудникам -->
+      <div class="risks-section" style="margin-bottom: 16px">
+        <div class="chart-title">Индекс нагрузки сотрудников</div>
+        <div class="coeff-note">Взвешенная сумма активных задач: высокий приоритет × 3, средний × 2, низкий × 1</div>
+        <div v-if="workload.length === 0" class="empty-small" style="margin-top: 12px">Нет данных</div>
+        <div v-else class="admin-table-wrap" style="margin-top: 12px">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Сотрудник</th>
+                <th>Индекс нагрузки</th>
+                <th>В работе</th>
+                <th>Готово</th>
+                <th>Просрочено</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="w in workload" :key="w.user_id">
+                <td>{{ w.username }}</td>
+                <td class="mono" :style="{ color: workloadLevel(w.workload_index).color, fontWeight: 600 }">
+                  {{ w.workload_index }}%
+                </td>
+                <td class="mono">{{ w.in_progress }}</td>
+                <td class="mono" style="color: var(--green)">{{ w.done }}</td>
+                <td class="mono" :style="{ color: w.overdue > 0 ? 'var(--red)' : 'var(--text-muted)' }">{{ w.overdue }}</td>
+                <td>
+                  <span class="workload-badge" :style="{ background: workloadLevel(w.workload_index).bg, color: workloadLevel(w.workload_index).color }">
+                    {{ workloadLevel(w.workload_index).label }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Риски по дедлайнам -->
       <div class="risks-section">
         <div class="chart-title">Задачи с риском срыва дедлайна (ближайшие 7 дней)</div>
         <div v-if="risks.length === 0" class="empty-small" style="margin-top: 12px">
@@ -55,6 +96,8 @@
                 <th>Статус</th>
                 <th>Приоритет</th>
                 <th>Исполнитель</th>
+                <th>Нагрузка исп.</th>
+                <th>Риск задачи</th>
               </tr>
             </thead>
             <tbody>
@@ -71,17 +114,26 @@
                   {{ priorityLabel[t.priority] }}
                 </td>
                 <td class="mono">{{ t.assignee ?? '—' }}</td>
+                <td class="mono" :style="{ color: workloadLevel(t.assignee_workload).color, fontWeight: 600 }">
+                  {{ t.assignee_workload }}%
+                </td>
+                <td>
+                  <span class="task-risk-badge" :style="{ color: taskRiskLevel(t.task_risk).color, background: taskRiskLevel(t.task_risk).bg }">
+                    {{ t.task_risk }}%
+                  </span>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
+
     </template>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from "vue"
+import { ref, computed, onMounted, onUnmounted, nextTick } from "vue"
 import Chart from "chart.js/auto"
 import api from "@/api"
 import StatusBadge from "@/components/StatusBadge.vue"
@@ -100,10 +152,32 @@ let workloadChart = null
 
 const priorityLabel = { low: "Низкий", medium: "Средний", high: "Высокий" }
 
-const chartColors = {
-  text: "#6b6b6b",
-  border: "#2e2e2e",
-  grid: "#1e1e1e",
+const chartColors = { text: "#6b6b6b", grid: "#1e1e1e" }
+
+const riskColor = computed(() => {
+  const r = summary.value.risk_index ?? 0
+  if (r >= 60) return "var(--red)"
+  if (r >= 30) return "var(--orange)"
+  return "var(--green)"
+})
+
+const riskLabel = computed(() => {
+  const r = summary.value.risk_index ?? 0
+  if (r >= 60) return "Высокий риск срыва сроков"
+  if (r >= 30) return "Умеренный риск — требует внимания"
+  return "Проект идёт в штатном режиме"
+})
+
+function taskRiskLevel(risk) {
+  if (risk >= 70) return { color: "var(--red)",    bg: "rgba(255,77,77,0.12)" }
+  if (risk >= 40) return { color: "var(--orange)", bg: "rgba(255,148,77,0.12)" }
+  return                 { color: "var(--green)",  bg: "rgba(77,255,145,0.12)" }
+}
+
+function workloadLevel(index) {
+  if (index >= 10) return { color: "var(--red)",    bg: "rgba(255,77,77,0.12)",   label: "Перегружен" }
+  if (index >= 5)  return { color: "var(--orange)", bg: "rgba(255,148,77,0.12)",  label: "Умеренно" }
+  return                   { color: "var(--green)", bg: "rgba(77,255,145,0.12)",  label: "Свободен" }
 }
 
 onMounted(async () => {
@@ -116,7 +190,7 @@ onMounted(async () => {
     ])
 
     summary.value = sumRes.data
-    risks.value = riskRes.data
+    risks.value = riskRes.data.sort((a, b) => b.task_risk - a.task_risk)
     workload.value = wlRes.data
 
     const timeline = tlRes.data
@@ -128,84 +202,45 @@ onMounted(async () => {
       type: "line",
       data: {
         labels: timeline.map((d) => d.date.slice(5)),
-        datasets: [
-          {
-            label: "Создано задач",
-            data: timeline.map((d) => d.count),
-            borderColor: "#e8ff47",
-            backgroundColor: "rgba(232, 255, 71, 0.07)",
-            borderWidth: 2,
-            pointRadius: 3,
-            pointBackgroundColor: "#e8ff47",
-            fill: true,
-            tension: 0.35,
-          },
-        ],
+        datasets: [{
+          label: "Создано задач",
+          data: timeline.map((d) => d.count),
+          borderColor: "#e8ff47",
+          backgroundColor: "rgba(232, 255, 71, 0.07)",
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: "#e8ff47",
+          fill: true,
+          tension: 0.35,
+        }],
       },
       options: {
         responsive: true,
-        plugins: {
-          legend: { display: false },
-        },
+        plugins: { legend: { display: false } },
         scales: {
-          x: {
-            grid: { color: chartColors.grid },
-            ticks: { color: chartColors.text, maxTicksLimit: 10 },
-          },
-          y: {
-            grid: { color: chartColors.grid },
-            ticks: { color: chartColors.text, stepSize: 1 },
-            beginAtZero: true,
-          },
+          x: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text, maxTicksLimit: 10 } },
+          y: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text, stepSize: 1 }, beginAtZero: true },
         },
       },
     })
 
-    if (wlRes.data.length > 0) {
+    if (workload.value.length > 0) {
       workloadChart = new Chart(workloadCanvas.value, {
         type: "bar",
         data: {
-          labels: wlRes.data.map((w) => w.username),
+          labels: workload.value.map((w) => w.username),
           datasets: [
-            {
-              label: "To Do",
-              data: wlRes.data.map((w) => w.todo),
-              backgroundColor: "#3a3a3a",
-              borderRadius: 3,
-            },
-            {
-              label: "В работе",
-              data: wlRes.data.map((w) => w.in_progress),
-              backgroundColor: "#4d9fff",
-              borderRadius: 3,
-            },
-            {
-              label: "Готово",
-              data: wlRes.data.map((w) => w.done),
-              backgroundColor: "#4dff91",
-              borderRadius: 3,
-            },
+            { label: "To Do",    data: workload.value.map((w) => w.todo),        backgroundColor: "#3a3a3a", borderRadius: 3 },
+            { label: "В работе", data: workload.value.map((w) => w.in_progress), backgroundColor: "#4d9fff", borderRadius: 3 },
+            { label: "Готово",   data: workload.value.map((w) => w.done),        backgroundColor: "#4dff91", borderRadius: 3 },
           ],
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: {
-              labels: { color: chartColors.text, boxWidth: 12, font: { size: 11 } },
-            },
-          },
+          plugins: { legend: { labels: { color: chartColors.text, boxWidth: 12, font: { size: 11 } } } },
           scales: {
-            x: {
-              grid: { color: chartColors.grid },
-              ticks: { color: chartColors.text },
-              stacked: true,
-            },
-            y: {
-              grid: { color: chartColors.grid },
-              ticks: { color: chartColors.text, stepSize: 1 },
-              beginAtZero: true,
-              stacked: true,
-            },
+            x: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text }, stacked: true },
+            y: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text, precision: 0 }, beginAtZero: true, stacked: true },
           },
         },
       })
@@ -222,12 +257,10 @@ onUnmounted(() => {
 })
 
 function formatDate(d) {
-  return new Date(d).toLocaleString("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+  const date = new Date(d.endsWith("Z") ? d : d + "Z")
+  return date.toLocaleString("ru-RU", {
+    day: "2-digit", month: "2-digit", year: "2-digit",
+    hour: "2-digit", minute: "2-digit",
   })
 }
 </script>
