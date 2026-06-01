@@ -1149,3 +1149,66 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .search-input:focus { border-color: var(--accent); }
 .search-input-sm { width: 140px; }
+
+/* analytics */
+.view-tabs-inline {
+  display: flex;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.view-tabs-inline .tab-btn {
+  padding: 4px 14px;
+  font-size: 12px;
+  border-bottom-width: 2px;
+}
+
+.analytics-content {
+  padding: 24px 28px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.analytics-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.chart-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+}
+
+.risks-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.stat-num.stat-muted { color: var(--text-muted); }
+.stat-num.stat-blue { color: var(--blue); }
+.stat-num.stat-green { color: var(--green); }
+.stat-num.stat-red { color: var(--red); }
+
+.risk-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}

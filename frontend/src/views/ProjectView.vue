@@ -5,8 +5,13 @@
       <div class="topbar-center">
         <span class="logo">{{ project?.title }}</span>
         <span class="project-desc">{{ project?.description }}</span>
+        <div v-if="auth.isManager" class="view-tabs-inline">
+          <button class="tab-btn" :class="{ active: activeView === 'board' }" @click="activeView = 'board'">Доска</button>
+          <button class="tab-btn" :class="{ active: activeView === 'analytics' }" @click="activeView = 'analytics'">Аналитика</button>
+        </div>
       </div>
       <div class="topbar-right">
+        <template v-if="activeView === 'board'">
         <input v-model="filterSearch" @input="applyFilters" placeholder="Поиск..." class="search-input search-input-sm" />
         <select v-model="filterStatus" @change="applyFilters" class="filter-select">
           <option value="">Все статусы</option>
@@ -34,13 +39,16 @@
             {{ sortDir === 'desc' ? '↓' : '↑' }}
           </button>
         </div>
+        </template>
         <span class="user-badge">{{ auth.user?.username }}</span>
         <button v-if="auth.isManager" class="btn-ghost" @click="showMembers = true">Участники</button>
         <button v-if="auth.isManager" class="btn-primary" @click="showCreateTask = true">+ Задача</button>
       </div>
     </header>
 
-    <main class="kanban-layout">
+    <AnalyticsTab v-if="activeView === 'analytics'" :project-id="parseInt(route.params.id)" />
+
+    <main v-if="activeView === 'board'" class="kanban-layout">
       <div class="kanban-board">
         <div
           v-for="col in columns"
@@ -297,6 +305,7 @@ import { useTasksStore } from "@/stores/tasks"
 import api from "@/api"
 import StatusBadge from "@/components/StatusBadge.vue"
 import MembersModal from "@/components/MembersModal.vue"
+import AnalyticsTab from "@/components/AnalyticsTab.vue"
 
 const route = useRoute()
 const router = useRouter()
@@ -319,6 +328,7 @@ const showCreateTask = ref(false)
 const showMembers = ref(false)
 const taskForm = ref({ title: "", description: "", priority: "medium", status: "todo", deadline: null, assignee_id: null })
 
+const activeView = ref('board')
 const filterSearch = ref('')
 const filterStatus = ref('')
 const filterPriority = ref('')
@@ -471,3 +481,13 @@ function isOverdue(d) {
   return new Date(d) < new Date()
 }
 </script>
+
+<style scoped>
+.topbar {
+  justify-content: flex-start;
+  gap: 16px;
+}
+.topbar-right {
+  margin-left: auto;
+}
+</style>

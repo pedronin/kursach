@@ -6,7 +6,7 @@ import os
 
 from app.database import engine, Base
 from app.models import User, Project, Task, Comment, ProjectComment, ProjectMember, Invite
-from app.routers import auth, projects, tasks, comments, users, project_comments, members, invites, admin
+from app.routers import auth, projects, tasks, comments, users, project_comments, members, invites, admin, analytics
 
 Base.metadata.create_all(bind=engine)
 
@@ -29,6 +29,7 @@ app.include_router(invites.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(comments.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
 
 frontend_dist = os.path.join(os.path.dirname(__file__), "../../frontend/dist")
 if os.path.exists(frontend_dist):
