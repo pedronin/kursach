@@ -6,8 +6,8 @@
         <span class="logo">{{ project?.title }}</span>
         <span class="project-desc">{{ project?.description }}</span>
         <div v-if="auth.isManager" class="view-tabs-inline">
-          <button class="tab-btn" :class="{ active: activeView === 'board' }" @click="activeView = 'board'">Доска</button>
-          <button class="tab-btn" :class="{ active: activeView === 'analytics' }" @click="activeView = 'analytics'">Аналитика</button>
+          <button class="tab-btn" :class="{ active: activeView === 'board' }" @click="setTab('board')">Доска</button>
+          <button class="tab-btn" :class="{ active: activeView === 'analytics' }" @click="setTab('analytics')">Аналитика</button>
         </div>
       </div>
       <div class="topbar-right">
@@ -328,7 +328,12 @@ const showCreateTask = ref(false)
 const showMembers = ref(false)
 const taskForm = ref({ title: "", description: "", priority: "medium", status: "todo", deadline: null, assignee_id: null })
 
-const activeView = ref('board')
+const activeView = ref(route.query.tab === 'analytics' ? 'analytics' : 'board')
+
+function setTab(tab) {
+  activeView.value = tab
+  router.replace({ query: { ...route.query, tab } })
+}
 const filterSearch = ref('')
 const filterStatus = ref('')
 const filterPriority = ref('')
