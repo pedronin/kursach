@@ -80,10 +80,59 @@
         </div>
       </div>
 
-      <!-- Риски по дедлайнам -->
+      <!-- Факт нарушений: уже просроченные задачи -->
+      <div class="risks-section" style="margin-bottom: 16px">
+        <div class="chart-title">
+          Просроченные задачи
+          <span class="section-tag section-tag--fact">Факт нарушения</span>
+        </div>
+        <div class="coeff-note">Дедлайн уже истёк — это зафиксированное нарушение сроков, не прогноз</div>
+        <div v-if="overdueRisks.length === 0" class="empty-small" style="margin-top: 12px; color: var(--green)">
+          Нет просроченных задач
+        </div>
+        <div v-else class="admin-table-wrap" style="margin-top: 12px">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Задача</th>
+                <th>Дедлайн истёк</th>
+                <th>Статус</th>
+                <th>Приоритет</th>
+                <th>Исполнитель</th>
+                <th>Нагрузка исп.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="t in overdueRisks" :key="t.id">
+                <td class="mono">{{ t.id }}</td>
+                <td>{{ t.title }}</td>
+                <td class="mono" style="color: var(--red)">{{ formatDate(t.deadline) }}</td>
+                <td><StatusBadge :status="t.status" /></td>
+                <td>
+                  <span class="priority-dot risk-dot" :class="`dot-${t.priority}`"></span>
+                  {{ priorityLabel[t.priority] }}
+                </td>
+                <td class="mono">{{ t.assignee ?? '—' }}</td>
+                <td class="mono" :style="{ color: workloadLevel(t.assignee_workload).color, fontWeight: 600 }">
+                  {{ t.assignee_workload }}%
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Прогноз рисков: ближайшие 7 дней -->
       <div class="risks-section">
-        <div class="chart-title">Задачи с риском срыва дедлайна (ближайшие 7 дней)</div>
-        <div v-if="risks.length === 0" class="empty-small" style="margin-top: 12px">
+        <div class="chart-title">
+          Прогнозные риски срыва сроков
+          <span class="section-tag section-tag--risk">Прогноз · 7 дней</span>
+        </div>
+        <div class="coeff-note">
+          Риск задачи R = min(100, D × Kp × Kw), где D — срочность дедлайна, Kp — коэффициент приоритета, Kw — коэффициент загруженности исполнителя
+        </div>
+        <div v-if="upcomingRisks.length === 0" class="empty-small" style="margin-top: 12px">
           Нет задач с горящими дедлайнами
         </div>
         <div v-else class="admin-table-wrap" style="margin-top: 12px">
@@ -101,13 +150,10 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="t in risks" :key="t.id">
+              <tr v-for="t in upcomingRisks" :key="t.id">
                 <td class="mono">{{ t.id }}</td>
                 <td>{{ t.title }}</td>
-                <td class="mono" :style="{ color: t.is_overdue ? 'var(--red)' : 'var(--orange)' }">
-                  {{ formatDate(t.deadline) }}
-                  <span v-if="t.is_overdue" style="font-size: 10px; opacity: 0.8"> просрочена</span>
-                </td>
+                <td class="mono" style="color: var(--orange)">{{ formatDate(t.deadline) }}</td>
                 <td><StatusBadge :status="t.status" /></td>
                 <td>
                   <span class="priority-dot risk-dot" :class="`dot-${t.priority}`"></span>
@@ -180,6 +226,20 @@ function workloadLevel(index) {
   return                   { color: "var(--green)", bg: "rgba(77,255,145,0.12)",  label: "Свободен" }
 }
 
+// Факты нарушений — уже просрочены, сортируем по дедлайну (сначала старейшие)
+const overdueRisks = computed(() =>
+  risks.value
+    .filter(r => r.is_overdue)
+    .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+)
+
+// Прогнозные риски — дедлайн ещё не наступил, сортируем по task_risk (самые рискованные сверху)
+const upcomingRisks = computed(() =>
+  risks.value
+    .filter(r => !r.is_overdue)
+    .sort((a, b) => b.task_risk - a.task_risk)
+)
+
 onMounted(async () => {
   try {
     const [sumRes, tlRes, wlRes, riskRes] = await Promise.all([
@@ -190,7 +250,7 @@ onMounted(async () => {
     ])
 
     summary.value = sumRes.data
-    risks.value = riskRes.data.sort((a, b) => b.task_risk - a.task_risk)
+    risks.value = riskRes.data
     workload.value = wlRes.data
 
     const timeline = tlRes.data

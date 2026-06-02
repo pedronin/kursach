@@ -1280,3 +1280,26 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-radius: 4px;
   display: inline-block;
 }
+
+.section-tag {
+  font-size: 10px;
+  font-weight: 500;
+  font-family: 'IBM Plex Mono', monospace;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 10px;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
+}
+
+.section-tag--fact {
+  background: rgba(255, 77, 77, 0.12);
+  color: var(--red);
+  border: 1px solid rgba(255, 77, 77, 0.25);
+}
+
+.section-tag--risk {
+  background: rgba(255, 148, 77, 0.12);
+  color: var(--orange);
+  border: 1px solid rgba(255, 148, 77, 0.25);
+}
