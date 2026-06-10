@@ -179,10 +179,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from "vue"
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue"
 import Chart from "chart.js/auto"
 import api from "@/api"
 import StatusBadge from "@/components/StatusBadge.vue"
+import { useTheme } from "@/composables/useTheme"
 
 const props = defineProps({ projectId: Number })
 
@@ -196,9 +197,14 @@ const workloadCanvas = ref(null)
 let timelineChart = null
 let workloadChart = null
 
+const { isDark } = useTheme()
+
 const priorityLabel = { low: "Низкий", medium: "Средний", high: "Высокий" }
 
-const chartColors = { text: "#6b6b6b", grid: "#1e1e1e" }
+const chartColors = computed(() => isDark.value
+  ? { text: "#6b6b6b", grid: "#2a2a2a" }
+  : { text: "#888888", grid: "#e0e0da" }
+)
 
 const riskColor = computed(() => {
   const r = summary.value.risk_index ?? 0
@@ -240,31 +246,24 @@ const upcomingRisks = computed(() =>
     .sort((a, b) => b.task_risk - a.task_risk)
 )
 
-onMounted(async () => {
-  try {
-    const [sumRes, tlRes, wlRes, riskRes] = await Promise.all([
-      api.get(`/analytics/${props.projectId}/summary`),
-      api.get(`/analytics/${props.projectId}/timeline`),
-      api.get(`/analytics/${props.projectId}/workload`),
-      api.get(`/analytics/${props.projectId}/risks`),
-    ])
+const timelineData = ref([])
 
-    summary.value = sumRes.data
-    risks.value = riskRes.data
-    workload.value = wlRes.data
+function initCharts() {
+  timelineChart?.destroy()
+  workloadChart?.destroy()
+  timelineChart = null
+  workloadChart = null
 
-    const timeline = tlRes.data
+  const c = chartColors.value
 
-    loading.value = false
-    await nextTick()
-
+  if (timelineCanvas.value) {
     timelineChart = new Chart(timelineCanvas.value, {
       type: "line",
       data: {
-        labels: timeline.map((d) => d.date.slice(5)),
+        labels: timelineData.value.map((d) => d.date.slice(5)),
         datasets: [{
           label: "Создано задач",
-          data: timeline.map((d) => d.count),
+          data: timelineData.value.map((d) => d.count),
           borderColor: "#e8ff47",
           backgroundColor: "rgba(232, 255, 71, 0.07)",
           borderWidth: 2,
@@ -278,37 +277,63 @@ onMounted(async () => {
         responsive: true,
         plugins: { legend: { display: false } },
         scales: {
-          x: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text, maxTicksLimit: 10 } },
-          y: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text, stepSize: 1 }, beginAtZero: true },
+          x: { grid: { color: c.grid }, ticks: { color: c.text, maxTicksLimit: 10 } },
+          y: { grid: { color: c.grid }, ticks: { color: c.text, precision: 0 }, beginAtZero: true },
         },
       },
     })
+  }
 
-    if (workload.value.length > 0) {
-      workloadChart = new Chart(workloadCanvas.value, {
-        type: "bar",
-        data: {
-          labels: workload.value.map((w) => w.username),
-          datasets: [
-            { label: "To Do",    data: workload.value.map((w) => w.todo),        backgroundColor: "#3a3a3a", borderRadius: 3 },
-            { label: "В работе", data: workload.value.map((w) => w.in_progress), backgroundColor: "#4d9fff", borderRadius: 3 },
-            { label: "Готово",   data: workload.value.map((w) => w.done),        backgroundColor: "#4dff91", borderRadius: 3 },
-          ],
+  if (workload.value.length > 0 && workloadCanvas.value) {
+    const todoBg = isDark.value ? "#3a3a3a" : "#d0d0cc"
+    workloadChart = new Chart(workloadCanvas.value, {
+      type: "bar",
+      data: {
+        labels: workload.value.map((w) => w.username),
+        datasets: [
+          { label: "To Do",    data: workload.value.map((w) => w.todo),        backgroundColor: todoBg,    borderRadius: 3 },
+          { label: "В работе", data: workload.value.map((w) => w.in_progress), backgroundColor: "#4d9fff", borderRadius: 3 },
+          { label: "Готово",   data: workload.value.map((w) => w.done),        backgroundColor: "#4dff91", borderRadius: 3 },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: c.text, boxWidth: 12, font: { size: 11 } } } },
+        scales: {
+          x: { grid: { color: c.grid }, ticks: { color: c.text }, stacked: true },
+          y: { grid: { color: c.grid }, ticks: { color: c.text, precision: 0 }, beginAtZero: true, stacked: true },
         },
-        options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: chartColors.text, boxWidth: 12, font: { size: 11 } } } },
-          scales: {
-            x: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text }, stacked: true },
-            y: { grid: { color: chartColors.grid }, ticks: { color: chartColors.text, precision: 0 }, beginAtZero: true, stacked: true },
-          },
-        },
-      })
-    }
+      },
+    })
+  }
+}
+
+onMounted(async () => {
+  try {
+    const [sumRes, tlRes, wlRes, riskRes] = await Promise.all([
+      api.get(`/analytics/${props.projectId}/summary`),
+      api.get(`/analytics/${props.projectId}/timeline`),
+      api.get(`/analytics/${props.projectId}/workload`),
+      api.get(`/analytics/${props.projectId}/risks`),
+    ])
+
+    summary.value = sumRes.data
+    risks.value = riskRes.data
+    workload.value = wlRes.data
+    timelineData.value = tlRes.data
+
+    loading.value = false
+    await nextTick()
+    initCharts()
   } catch (e) {
     error.value = "Не удалось загрузить аналитику"
     loading.value = false
   }
+})
+
+watch(isDark, async () => {
+  await nextTick()
+  initCharts()
 })
 
 onUnmounted(() => {

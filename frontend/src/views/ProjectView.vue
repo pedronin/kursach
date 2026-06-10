@@ -41,6 +41,9 @@
         </div>
         </template>
         <span class="user-badge">{{ auth.user?.username }}</span>
+        <button class="btn-ghost theme-toggle" @click="toggleTheme" :title="isDark ? 'Светлая тема' : 'Тёмная тема'">
+          {{ isDark ? '☀' : '☾' }}
+        </button>
         <button v-if="auth.isManager" class="btn-ghost" @click="showMembers = true">Участники</button>
         <button v-if="auth.isManager" class="btn-primary" @click="showCreateTask = true">+ Задача</button>
       </div>
@@ -306,10 +309,12 @@ import api from "@/api"
 import StatusBadge from "@/components/StatusBadge.vue"
 import MembersModal from "@/components/MembersModal.vue"
 import AnalyticsTab from "@/components/AnalyticsTab.vue"
+import { useTheme } from "@/composables/useTheme"
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const { isDark, toggleTheme } = useTheme()
 const store = useTasksStore()
 
 const project = ref(null)

@@ -5,6 +5,9 @@
       <div class="topbar-right">
         <button v-if="auth.isAdmin" class="btn-ghost" @click="router.push('/admin')">⚙ Админ</button>
         <span class="user-badge">{{ auth.user?.username }} · {{ auth.user?.role }}</span>
+        <button class="btn-ghost theme-toggle" @click="toggleTheme" :title="isDark ? 'Светлая тема' : 'Тёмная тема'">
+          {{ isDark ? '☀' : '☾' }}
+        </button>
         <button class="btn-ghost" @click="handleLogout">Выйти</button>
       </div>
     </header>
@@ -115,9 +118,11 @@ import { useProjectsStore } from "@/stores/projects"
 import { useTasksStore } from "@/stores/tasks"
 import ProjectCard from "@/components/ProjectCard.vue"
 import InviteBlock from "@/components/InviteBlock.vue"
+import { useTheme } from "@/composables/useTheme"
 
 const router = useRouter()
 const auth = useAuthStore()
+const { isDark, toggleTheme } = useTheme()
 const store = useProjectsStore()
 const tasksStore = useTasksStore()
 

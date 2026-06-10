@@ -3,6 +3,9 @@
     <header class="topbar">
       <button class="btn-ghost" @click="router.push('/')">← Назад</button>
       <span class="logo">Панель администратора</span>
+      <button class="btn-ghost theme-toggle" @click="toggleTheme" :title="isDark ? 'Светлая тема' : 'Тёмная тема'">
+        {{ isDark ? '☀' : '☾' }}
+      </button>
       <span class="user-badge">{{ auth.user?.username }}</span>
     </header>
 
@@ -131,9 +134,11 @@ import { ref, onMounted } from "vue"
 import { useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
 import api from "@/api"
+import { useTheme } from "@/composables/useTheme"
 
 const router = useRouter()
 const auth = useAuthStore()
+const { isDark, toggleTheme } = useTheme()
 
 const stats = ref(null)
 const users = ref([])
